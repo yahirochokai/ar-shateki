@@ -88,14 +88,15 @@
             line-height: 1.0;
         }
         
-        /* *** 「もう1かい」ボタン *** */
+        /* *** 「もう1かい」ボタン (変更: margin-bottomを削除し、一行に収まるように調整) *** */
         #reset-button {
             display: block; margin: 0 auto;
             font-size: 20px; font-weight: bold;
             color: #111; background-color: #eee;
             border: 3px solid #111;
             padding: 10px 20px; border-radius: 8px;
-            cursor: pointer; margin-bottom: 0; 
+            cursor: pointer; /* margin-bottom: 0; を削除 */
+            white-space: nowrap; /* ボタンテキストが改行しないように */
         }
         
         /* *** スコア履歴表示エリア (画面右上) *** */
@@ -109,15 +110,18 @@
             line-height: 1.5; /* 行間を広げる */
         }
         
-        /* *** 投球指示テキスト (HTML要素) *** */
+        /* *** 投球指示テキスト (HTML要素) (変更: topを75%に下げて、スコア表示と重ならないように) *** */
         #throw-instruction {
-            position: fixed; top: 60%; left: 50%;
+            position: fixed; top: 75%; /* 60%から75%に移動 */
+            left: 50%;
             transform: translateX(-50%);
             color: white; font-size: 20px;
             background-color: rgba(0, 0, 0, 0.6);
             padding: 5px 15px; border-radius: 5px;
             z-index: 9996; cursor: pointer; 
-            text-align: center; line-height: 1.2;
+            text-align: center; 
+            white-space: nowrap; /* テキストが一行に収まるように */
+            line-height: 1.2;
         }
     </style>
 </head>
@@ -435,9 +439,9 @@
                         this.isThrowing = false;
                         
                         this.scoreMessageEl.innerHTML = `
-                            ${displayScore} てん<br>
-                            <br>
-                            <small>${result.message}</small>
+                             ${displayScore} てん<br>
+                             <br>
+                             <small>${result.message}</small>
                         `;
                         this.scoreMessageEl.style.color = result.color;
                         this.scoreMessageEl.style.border = `3px solid ${result.color}`;
