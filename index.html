@@ -7,7 +7,7 @@
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     
     <style>
-        /* CSSコード (変更なし) */
+        /* CSSコード (大部分変更なし) */
         body { margin: 0; overflow: hidden; }
         canvas { touch-action: none; } 
 
@@ -110,18 +110,42 @@
             line-height: 1.5; 
         }
         
-        /* *** 投球指示テキスト (HTML要素) *** */
+        /* *** 投球指示テキスト/画像ボタン (変更: 画像ボタン化) *** */
         #throw-instruction {
             position: fixed; top: 75%; 
             left: 50%;
             transform: translateX(-50%);
-            color: white; font-size: 20px;
-            background-color: rgba(0, 0, 0, 0.6);
-            padding: 5px 15px; border-radius: 5px;
+            color: white; /* テキスト表示の場合のために残しておく */
+            font-size: 20px;
+            /* 背景画像としてtapbutton.pngを使用 */
+            background-image: url('tapbutton.png'); 
+            background-size: contain; /* コンテナに合わせて画像を調整 */
+            background-repeat: no-repeat; /* 画像の繰り返しなし */
+            background-position: center; /* 画像を中央に配置 */
+            width: 150px; /* ボタンの幅を調整 */
+            height: 150px; /* ボタンの高さを調整 */
+            /* padding: 5px 15px; */ /* 背景画像を使用するためパディングは不要 */
+            border-radius: 5px; /* 角丸は画像のデザインによるが、念のため残しておく */
             z-index: 9996; cursor: pointer; 
             text-align: center; 
             white-space: nowrap; 
             line-height: 1.2;
+            display: flex; /* テキストを垂直方向中央に配置するため */
+            justify-content: center; /* 水平方向中央 */
+            align-items: center; /* 垂直方向中央 */
+            padding: 0; /* flexを使うのでpaddingをリセット */
+            background-color: transparent; /* ボタンの背景は透明に */
+            border: none; /* ボタンの枠線は不要 */
+        }
+        
+        /* 完了後のメッセージスタイル */
+        #throw-instruction.game-over {
+            background-image: none; /* 画像を非表示 */
+            background-color: rgba(0, 0, 0, 0.6); /* 背景色をテキスト用に設定 */
+            width: auto; /* テキストに合わせて幅を調整 */
+            height: auto; /* テキストに合わせて高さを調整 */
+            padding: 5px 15px; /* テキスト用にパディングを設定 */
+            border: none;
         }
     </style>
 
@@ -136,29 +160,23 @@
             ];
 
             soundList.forEach(s => {
-                // Audioオブジェクトを作成
                 const audio = new Audio(s.src);
-                audio.preload = 'auto'; // メモリに読み込む指示
-                audio.load(); // 読み込み開始
+                audio.preload = 'auto'; 
+                audio.load(); 
                 sounds[s.id] = audio;
             });
         }
 
-        // 指定されたサウンドIDを再生する関数
         function playSound(id) {
             const audio = sounds[id];
             if (audio) {
-                audio.currentTime = 0; // 再生位置を最初に戻す
-                // Promiseを返すが、ここではエラー処理を省略
+                audio.currentTime = 0; 
                 audio.play().catch(error => {
                     console.warn(`Sound playback failed for ${id}:`, error);
-                    // 多くのモバイルブラウザでは、ユーザー操作なしに
-                    // 自動再生がブロックされるため、この警告が出ることがあります。
                 });
             }
         }
 
-        // ページ読み込み時にプリロードを開始
         window.addEventListener('load', preloadSounds);
     </script>
 
@@ -170,8 +188,7 @@
     <div id="score-history-display"></div>
 
     <div id="throw-instruction">
-        ねらってタップ！
-    </div>
+        </div>
 
     <div id="score-display-container" style="display: none;">
         <button id="reset-button" onclick="handleReset()">もう1かい</button>
@@ -185,19 +202,14 @@
     <div id="power-instruction">◀ねらえ</div> 
 
     <script>
-        // グローバル変数/定数定義 (変更なし)
         const THREE = AFRAME.THREE;
         const MAX_POWER = 50;
         const BASE_POWER = 25;
         
-        // スコア管理用の新しいグローバル変数 (変更なし)
         let scores = [0, 0, 0, 0];
         let playCount = 0;
         const MAX_PLAY_COUNT = 4;
         
-        // ------------------------------------
-        // スコア表示更新関数 (変更なし)
-        // ------------------------------------
         function updateScoreHistory() {
             const historyEl = document.getElementById('score-history-display');
             let totalScore = 0;
@@ -214,9 +226,6 @@
             historyEl.innerText = historyText;
         }
 
-        // ------------------------------------
-        // ゲームリセット/終了処理ハンドラ (変更なし)
-        // ------------------------------------
         function resetGame() {
             const throwBallEl = document.getElementById('throwButton');
             
@@ -238,12 +247,8 @@
             resetGame();
         }
 
-        // 初回実行 (変更なし)
         updateScoreHistory();
 
-        // ------------------------------------
-        // パワーメーターロジック (変更なし)
-        // ------------------------------------
         AFRAME.registerComponent('power-meter', {
             init: function () {
                 this.power = 0;
@@ -285,9 +290,6 @@
         });
 
 
-        // ------------------------------------
-        // 投球ロジック (サウンド再生を追加)
-        // ------------------------------------
         AFRAME.registerComponent('throw-ball', {
             init: function () {
                 this.isThrowing = false;
@@ -330,11 +332,13 @@
                 if (!this.instructionEl) return;
                 
                 if (playCount >= MAX_PLAY_COUNT) {
+                    this.instructionEl.classList.add('game-over'); // ゲーム終了スタイルを適用
                     this.instructionEl.innerText = `ゲームしゅうりょう！`;
                     this.instructionEl.style.display = 'block';
                 } else if (this.isCharging) {
-                    this.instructionEl.innerText = 'ねらってタップ！';
-                    this.instructionEl.style.display = 'block';
+                    this.instructionEl.classList.remove('game-over'); // 画像ボタンを適用
+                    this.instructionEl.innerText = ''; // 画像が表示されるのでテキストは空に
+                    this.instructionEl.style.display = 'flex'; // flexを使って画像を中央配置
                 } else {
                      this.instructionEl.style.display = 'none';
                 }
@@ -367,7 +371,6 @@
                     this.isPowerSet = true;
                     this.el.sceneEl.emit('throw-state-changed', { isCharging: false }); 
                     
-                    // --- サウンド: 玉を発射した時 ---
                     playSound('shot');
                     
                     this.throwBall();
@@ -391,7 +394,7 @@
                 const power = Math.round(powerValue);
                 let message;
                 let color;
-                let soundId; // サウンドIDを追加
+                let soundId; 
 
                 if (power === BASE_POWER) {
                     message = 'かみわざ！！'; color = '#FFD700'; soundId = 'hit';
@@ -403,7 +406,6 @@
                     message = 'ざんねん…！'; color = '#FF4500'; soundId = 'hazure';
                 }
 
-                // サウンドIDをリターンオブジェクトに追加
                 return { message, color, soundId };
             },
 
@@ -467,14 +469,12 @@
                         step++;
                         requestAnimationFrame(updateBall);
                     } else {
-                        // アニメーション完了
                         sceneEl.removeChild(ball);
                         this.isThrowing = false;
                         
-                        // --- サウンド: 当たり判定結果に応じて再生 ---
                         setTimeout(() => {
                              playSound(result.soundId);
-                        }, 50); // アニメーション終了直後にわずかな遅延を入れて再生
+                        }, 50); 
 
                         this.scoreMessageEl.innerHTML = `
                              ${displayScore} てん<br>
@@ -489,8 +489,10 @@
                             document.getElementById('reset-button').innerText = 'けっかをみせてね！';
                             this.instructionEl.style.display = 'block';
                             this.instructionEl.innerText = `ゲームしゅうりょう！`;
+                            this.instructionEl.classList.add('game-over'); // ゲーム終了スタイルを適用
                         } else {
                             document.getElementById('reset-button').innerText = 'もう1かい';
+                            this.instructionEl.classList.remove('game-over'); // 画像ボタンを適用
                         }
                     }
                 };
