@@ -16,7 +16,7 @@
         body { margin: 0; overflow: hidden; }
         canvas { touch-action: none; } 
 
-        /* ターゲットロックインジケーター */
+        /* ターゲットロックインジケーター (デバッグのため非表示を維持) */
         #target-indicator {
             position: fixed; top: 30%; left: 50%;
             transform: translateX(-50%);
@@ -24,11 +24,10 @@
             background-color: rgba(0, 0, 0, 0.5);
             padding: 10px 20px; border-radius: 5px;
             z-index: 9999;
-            /* ✅ 修正点: 初期状態を非表示にする */
             display: none; 
         }
 
-        /* デバッグ情報表示エリア (CSSはそのまま残すが、HTML側でコメントアウト) */
+        /* デバッグ情報表示エリア */
         #debug-info {
             position: fixed; top: 10px; left: 10px;
             color: white; font-size: 14px;
@@ -38,7 +37,7 @@
             display: none !important; 
         }
         
-        /* タッチ/投球デバッグ表示エリア (エラー表示に転用) */
+        /* タッチ/投球デバッグ表示エリア */
         #touch-debug {
             position: fixed; top: 68%; left: 50%;
             transform: translateX(-50%);
@@ -143,7 +142,7 @@
     <div id="touch-debug" style="display: none;"></div>
     <div id="last-score-display">前回: -</div>
 
-    <div id="throw-instruction">
+    <div id="throw-instruction" ontouchstart="handleTouchStart()">
         マーカーにねらいをさだめて<br>タップ！
     </div>
 
@@ -169,6 +168,15 @@
 
             if (throwBallEl && throwBallEl.components['throw-ball']) {
                 throwBallEl.components['throw-ball'].resetThrowState();
+            }
+        }
+        
+        // 【✅ 新規追加】タッチイベントの受付関数
+        function handleTouchStart() {
+            // throw-ballコンポーネントの handleClick を実行
+            const throwBallEl = document.getElementById('throwButton');
+            if (throwBallEl && throwBallEl.components['throw-ball']) {
+                throwBallEl.components['throw-ball'].handleClick();
             }
         }
     </script>
