@@ -1,4 +1,4 @@
-// throw-ball.js (最終版 - イベント直結・投球強制)
+// throw-ball.js (最簡略化デバッグ版 - タップしたら強制発射)
 
 // 定数定義 
 const MAX_POWER = 50; 
@@ -23,7 +23,6 @@ AFRAME.registerComponent('throw-ball', {
         const THREE = AFRAME.THREE; 
 
         // ✅ 修正点1: HTML要素へのイベント登録を init 内で直接行う（touchstartを使用）
-        // bind(this)で、handleClickがこのコンポーネントのthisコンテキストで実行されることを保証
         this.instructionEl.addEventListener('touchstart', this.handleClick.bind(this));
         
         this.markerEl = this.el.parentNode; 
@@ -32,7 +31,7 @@ AFRAME.registerComponent('throw-ball', {
         this.setIsCharging(true); 
     },
     
-    // ... (tick は削除されたまま) ...
+    // ... (setIsCharging, updateInstructionText, updateTargetIndicator, resetThrowState は前回修正と同じ) ...
 
     setIsCharging: function(charging) {
         this.isCharging = charging;
@@ -46,7 +45,6 @@ AFRAME.registerComponent('throw-ball', {
         if (this.isCharging) {
             this.instructionEl.innerText = 'タップでパワー決定！';
         } else {
-            // 投球後のリセット待ち状態
             this.instructionEl.innerText = 'マーカーにねらいをさだめて\nタップ！';
         }
     },
@@ -62,32 +60,37 @@ AFRAME.registerComponent('throw-ball', {
         this.updateInstructionText();
     },
 
-    // ✅ 修正点2: handleClick内のガードを最小限にする
+    // ✅ 修正点2: ガードをすべて外し、強制的に投球処理へ
     handleClick: function(event) {
-        // タップイベントが3Dシーンに伝播するのを防ぐ
+        // イベントが3Dシーンに伝播するのを防ぐ
         if (event) event.preventDefault(); 
         
         this.touchDebugEl.style.display = 'none'; 
         clearTimeout(this.touchTimer);
+
+        // *** 【デバッグ目的】タップされたことを強制的に表示する ***
+        this.showDebugMessage('🚀 発射シークエンス開始！', 'yellow', 'green');
+        // *******************************************************
         
-        // 投球中の場合は処理を中止
+        // ❌ 投球中、チャージ中のガードを全て削除
+        /*
         if (this.isThrowing) {
             this.showDebugMessage('投球ちゅう！', 'white', 'blue');
             return;
         }
         
-        // チャージ中の場合のみ、投球を実行
         if (this.isCharging) { 
-            // 投球処理開始
             this.setIsCharging(false); 
-            
-            this.selectedPower = this.powerMeterEl.components['power-meter'].getCurrentPower();
-            this.throwBall();
+        */
 
-            this.instructionEl.style.display = 'none';
-        }
+        // メーターの現在のパワーを取得 (isChargingの状態に関わらず)
+        this.selectedPower = this.powerMeterEl.components['power-meter'].getCurrentPower();
+        this.throwBall();
+
+        this.instructionEl.style.display = 'none';
     },
 
+    // ... (showDebugMessage, getScoreMessage は前回修正と同じ) ...
     showDebugMessage: function(message, color, bgColor) {
         this.touchDebugEl.style.display = 'block';
         this.touchDebugEl.innerText = message;
@@ -99,7 +102,7 @@ AFRAME.registerComponent('throw-ball', {
             this.touchDebugEl.style.display = 'none';
         }, 1500); 
     },
-
+    
     getScoreMessage: function(powerValue) {
         const power = Math.round(powerValue);
 
@@ -115,6 +118,7 @@ AFRAME.registerComponent('throw-ball', {
     },
 
     throwBall: function () {
+        // ✅ 修正点3: throwBallに入ったらisThrowingをセットし、二重発射を防ぐ
         this.isThrowing = true;
         
         const powerValue = Math.round(this.selectedPower);
@@ -126,12 +130,12 @@ AFRAME.registerComponent('throw-ball', {
         const ball = document.createElement('a-sphere');
         const THREE = AFRAME.THREE;
         
+        // ... (投球ロジックはそのまま) ...
         const cameraWorldPosition = cameraEl.object3D.position.clone();
         
         let targetWorldPosition = new THREE.Vector3();
         targetWorldPosition.set(cameraWorldPosition.x, cameraWorldPosition.y, cameraWorldPosition.z - 2);
         
-        // マーカーが見えている場合は、的の位置（水色の丸）の座標を使用
         if (this.markerEl.object3D.visible) {
             targetWorldPosition = this.el.object3D.getWorldPosition(new THREE.Vector3());
         }
@@ -191,6 +195,9 @@ AFRAME.registerComponent('throw-ball', {
                 
                 lastScore = displayScore;
                 this.lastScoreEl.innerText = `前回: ${lastScore} てん`;
+                
+                // リセット処理も強制実行
+                this.resetThrowState(); 
             }
         };
         
