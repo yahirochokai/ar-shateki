@@ -2,39 +2,23 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>WebAR Throwing Game (Marker Pattern)</title>
+    <title>WebAR Throwing Game (Pattern Marker)</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     
-    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v7.2.0/dist/aframe-extras.min.js"></script>
-
-    <script src="./power-meter.js"></script> 
-    <script src="./throw-ball.js"></script> 
-
     <style>
-        /* CSSコードは提供されたものをすべてそのまま残します */
+        /* CSSコード (変更なし) */
         body { margin: 0; overflow: hidden; }
         canvas { touch-action: none; } 
 
-        /* ターゲットロックインジケーター (デバッグのため非表示を維持) */
+        /* ターゲットロックインジケーター */
         #target-indicator {
             position: fixed; top: 30%; left: 50%;
             transform: translateX(-50%);
             color: white; font-size: 24px;
             background-color: rgba(0, 0, 0, 0.5);
             padding: 10px 20px; border-radius: 5px;
-            z-index: 9999;
-            display: none; 
-        }
-
-        /* デバッグ情報表示エリア */
-        #debug-info {
-            position: fixed; top: 10px; left: 10px;
-            color: white; font-size: 14px;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 5px 10px; border-radius: 3px;
-            z-index: 9998; font-family: monospace;
-            display: none !important; 
+            z-index: 9999; display: none;
         }
         
         /* タッチ/投球デバッグ表示エリア */
@@ -44,8 +28,7 @@
             color: yellow; font-size: 20px;
             background-color: rgba(255, 0, 0, 0.7); 
             padding: 5px 15px; border-radius: 5px;
-            z-index: 9999;
-            display: none;
+            z-index: 9999; display: none;
         }
 
         /* *** パワーメーターエリア *** */
@@ -67,7 +50,7 @@
             transition: none; 
         }
 
-        /* 【追加】ターゲットライン */
+        /* ターゲットライン */
         #target-line {
             position: absolute; top: 50%; 
             left: 0; width: 100%; height: 2px;
@@ -75,7 +58,7 @@
             transform: translateY(-50%); 
         }
 
-        /* 【追加】パワーメーター指示テキスト */
+        /* パワーメーター指示テキスト */
         #power-instruction {
             position: fixed; top: 50%; left: 45px; 
             transform: translateY(-50%);
@@ -138,29 +121,285 @@
 </head>
 
 <body>
-    <div id="target-indicator" style="display: none;">ロックオン！</div>
+    <div id="target-indicator">マーカーを検出！</div>
     <div id="touch-debug" style="display: none;"></div>
     <div id="last-score-display">前回: -</div>
 
-<div id="throw-instruction">
-    マーカーにねらいをさだめて<br>タップ！
-</div>
+    <div id="throw-instruction">
+        マーカーにねらいをさだめて<br>タップ！
+    </div>
 
-<div id="score-display-container" style="display: none;">
-    <button id="reset-button" onclick="resetGame()">もう1かい</button>
-    <div id="score-display-message"></div>
-</div>
+    <div id="score-display-container" style="display: none;">
+        <button id="reset-button" onclick="resetGame()">もう1かい</button>
+        <div id="score-display-message"></div>
+    </div>
 
-<script>
-    // グローバル関数: ゲームリセット (この関数は維持)
-    function resetGame() {
-        const throwBallEl = document.getElementById('throwButton');
-        // ... (省略) ...
-    }
-    
-    // ❌ 修正点: handleTouchStart() グローバル関数を削除
-</script>
+    <div id="power-meter">
+        <div id="power-bar"></div>
+        <div id="target-line"></div> 
+    </div>
+    <div id="power-instruction">◀ねらえ</div> 
 
+    <script>
+        // グローバル変数/定数定義
+        const THREE = AFRAME.THREE;
+        const MAX_POWER = 50;
+        const BASE_POWER = 25;
+        let lastScore = null;
+
+        // ゲームリセット関数 (onclickから呼ばれる)
+        function resetGame() {
+            const throwBallEl = document.getElementById('throwButton');
+
+            document.getElementById('score-display-container').style.display = 'none';
+            document.getElementById('throw-instruction').style.display = 'block';
+            document.getElementById('touch-debug').style.display = 'none';
+
+            if (throwBallEl && throwBallEl.components['throw-ball']) {
+                throwBallEl.components['throw-ball'].resetThrowState();
+            }
+        }
+
+        // ------------------------------------
+        // パワーメーターロジック
+        // ------------------------------------
+        AFRAME.registerComponent('power-meter', {
+            init: function () {
+                this.power = 0;
+                this.direction = 1;
+                this.speed = 100;
+                this.meterEl = document.getElementById('power-bar');
+                this.isCharging = true;
+                
+                this.el.sceneEl.addEventListener('throw-state-changed', (evt) => {
+                    this.isCharging = evt.detail.isCharging;
+                    if(this.isCharging) {
+                         this.power = 0;
+                         this.direction = 1;
+                    }
+                });
+            },
+            
+            tick: function (t, dt) {
+                if (!this.isCharging) return;
+                
+                const delta = this.direction * (dt / 1000) * this.speed;
+                this.power += delta;
+
+                if (this.power >= MAX_POWER) {
+                    this.power = MAX_POWER;
+                    this.direction = -1;
+                } else if (this.power <= 0) {
+                    this.power = 0;
+                    this.direction = 1;
+                }
+
+                const height = (this.power / MAX_POWER) * 100;
+                this.meterEl.style.height = `${height}%`;
+            },
+            
+            getCurrentPower: function() {
+                return this.power;
+            }
+        });
+
+
+        // ------------------------------------
+        // 投球ロジック (マーカー認識対応版)
+        // ------------------------------------
+        AFRAME.registerComponent('throw-ball', {
+            init: function () {
+                this.isThrowing = false;
+                this.isTargetLocked = false;
+                this.isCharging = true;
+                this.touchDebugEl = document.getElementById('touch-debug');
+                this.scoreContainerEl = document.getElementById('score-display-container');
+                this.scoreMessageEl = document.getElementById('score-display-message');
+                this.lastScoreEl = document.getElementById('last-score-display');
+                this.instructionEl = document.getElementById('throw-instruction');
+                this.indicatorEl = document.getElementById('target-indicator'); // 追加
+                this.powerMeterEl = document.querySelector('[power-meter]');
+                this.selectedPower = 0;
+                
+                // 親のマーカー要素を取得
+                this.markerEl = this.el.parentNode;
+
+                // マウス/タッチ対応のため、両方のイベントリスナーを追加
+                const handleClickBound = this.handleClick.bind(this);
+                
+                // 3Dオブジェクト (a-circle) へのクリックイベント
+                this.el.addEventListener('click', handleClickBound);
+                this.el.addEventListener('touchstart', handleClickBound);
+
+                // 2D UI (div#throw-instruction) へのクリック/タップイベント
+                this.instructionEl.addEventListener('click', handleClickBound);
+                this.instructionEl.addEventListener('touchstart', handleClickBound);
+
+                // マーカーの可視性イベントを購読 (*** 色認識ロジックの代わり ***)
+                this.markerEl.addEventListener('markerFound', () => {
+                    this.isTargetLocked = true;
+                    this.indicatorEl.style.display = 'block';
+                    this.updateInstructionText();
+                });
+                this.markerEl.addEventListener('markerLost', () => {
+                    this.isTargetLocked = false;
+                    this.indicatorEl.style.display = 'none';
+                    this.updateInstructionText();
+                });
+                
+                this.updateInstructionText();
+            },
+
+            updateInstructionText: function() {
+                if (!this.instructionEl) return;
+                
+                if (this.isCharging) {
+                    this.instructionEl.innerText = 'タップ/クリックでパワー決定！';
+                } else if (this.isTargetLocked) {
+                    this.instructionEl.innerText = 'マーカーをねらって\nタップ/クリック！';
+                } else {
+                    this.instructionEl.innerText = 'マーカーにねらいをさだめて<br>タップ！';
+                }
+            },
+
+            resetThrowState: function() {
+                this.isCharging = true;
+                this.isThrowing = false;
+                this.el.sceneEl.emit('throw-state-changed', { isCharging: true });
+                this.updateInstructionText();
+            },
+
+            handleClick: function(event) {
+                if (event) event.preventDefault();
+                
+                this.touchDebugEl.style.display = 'none';
+                clearTimeout(this.touchTimer);
+                
+                if (this.isThrowing) return;
+
+                // 投球フェーズ（チャージ完了後）でマーカーが見えていない場合は警告
+                if (!this.isCharging && !this.isTargetLocked) {
+                    this.touchDebugEl.style.display = 'block';
+                    this.touchDebugEl.innerText = 'マーカーが見えていません！';
+                    this.touchDebugEl.style.color = 'yellow';
+                    this.touchDebugEl.style.backgroundColor = 'rgba(255, 165, 0, 0.7)';
+                    
+                    this.touchTimer = setTimeout(() => {
+                        this.touchDebugEl.style.display = 'none';
+                    }, 1500);
+                    return;
+                }
+                
+                // 1. チャージ中 -> パワー決定
+                if (this.isCharging) {
+                    this.isCharging = false;
+                    this.el.sceneEl.emit('throw-state-changed', { isCharging: false });
+                    
+                    this.selectedPower = this.powerMeterEl.components['power-meter'].getCurrentPower();
+                    this.instructionEl.innerText = this.isTargetLocked ? 'マーカーをねらって\nタップ/クリック！' : 'マーカーを探して\nタップ/クリック！';
+                
+                // 2. チャージ完了後 -> 投球
+                } else if (!this.isCharging && this.isTargetLocked) {
+                    this.throwBall();
+                    this.instructionEl.style.display = 'none';
+                }
+            },
+
+            getScoreMessage: function(powerValue) {
+                const power = Math.round(powerValue);
+
+                if (power === BASE_POWER) {
+                    return { message: 'かみわざ！！', color: '#FFD700' };
+                } else if ((power >= BASE_POWER - 5 && power <= BASE_POWER - 1) || (power >= BASE_POWER + 1 && power <= BASE_POWER + 5)) {
+                    return { message: 'すごい！', color: '#00BFFF' };
+                } else if ((power >= BASE_POWER - 10 && power <= BASE_POWER - 6) || (power >= BASE_POWER + 6 && power <= BASE_POWER + 10)) {
+                    return { message: 'やったね！', color: '#32CD32' };
+                } else {
+                    return { message: 'ざんねん…！', color: '#FF4500' };
+                }
+            },
+
+            throwBall: function () {
+                if (this.isThrowing) return;
+                
+                this.isThrowing = true;
+                
+                const powerValue = Math.round(this.selectedPower);
+                const result = this.getScoreMessage(powerValue);
+                const displayScore = BASE_POWER - Math.abs(powerValue - BASE_POWER);
+
+                const sceneEl = this.el.sceneEl;
+                const cameraEl = sceneEl.camera.el;
+                const ball = document.createElement('a-sphere');
+                
+                const cameraWorldPosition = cameraEl.object3D.position.clone();
+                ball.setAttribute('position', { 
+                    x: cameraWorldPosition.x, 
+                    y: cameraWorldPosition.y,
+                    z: cameraWorldPosition.z - 0.5 
+                });
+                
+                ball.setAttribute('radius', 0.1);
+                ball.setAttribute('color', '#FF0000');
+                ball.setAttribute('shadow', '');
+                sceneEl.appendChild(ball);
+                
+                const throwDuration = 0.5;
+                const steps = 30;
+                const stepTime = throwDuration / steps;
+
+                // ターゲット位置をマーカーのワールド座標に設定
+                const targetWorldPosition = this.el.object3D.getWorldPosition(new THREE.Vector3());
+                
+                // パワーに応じたY軸のオフセット（仰角）
+                const MAX_OFFSET_Y = 1.0;
+                const powerDiff = powerValue - BASE_POWER;
+                const offsetScaleY = powerDiff * 0.05;
+                const verticalOffset = offsetScaleY * MAX_OFFSET_Y * 2;
+                
+                const finalTargetY = targetWorldPosition.y + verticalOffset;
+
+                // 速度計算
+                const velocityX = (targetWorldPosition.x - cameraWorldPosition.x) / throwDuration;
+                const velocityY = (finalTargetY - cameraWorldPosition.y) / throwDuration;
+                // ボール開始Z座標が-0.5のため、目標Zを調整
+                const velocityZ = (targetWorldPosition.z - (cameraWorldPosition.z - 0.5)) / throwDuration;
+
+                let step = 0;
+                
+                const updateBall = () => {
+                    if (step < steps) {
+                        const newX = ball.getAttribute('position').x + velocityX * stepTime;
+                        const newY = ball.getAttribute('position').y + velocityY * stepTime;
+                        const newZ = ball.getAttribute('position').z + velocityZ * stepTime;
+
+                        ball.setAttribute('position', {x: newX, y: newY, z: newZ});
+                        
+                        step++;
+                        requestAnimationFrame(updateBall);
+                    } else {
+                        // アニメーション完了
+                        sceneEl.removeChild(ball);
+                        this.isThrowing = false;
+                        
+                        this.scoreMessageEl.innerHTML = `
+                            ${displayScore} てん<br>
+                            <br>
+                            <small>${result.message}</small>
+                        `;
+                        this.scoreMessageEl.style.color = result.color;
+                        this.scoreMessageEl.style.border = `3px solid ${result.color}`;
+                        this.scoreContainerEl.style.display = 'block';
+                        
+                        lastScore = displayScore;
+                        this.lastScoreEl.innerText = `前回: ${lastScore} てん`;
+                    }
+                };
+                
+                requestAnimationFrame(updateBall);
+            }
+        });
+    </script>
 
     <a-scene 
         embedded 
