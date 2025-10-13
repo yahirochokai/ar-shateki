@@ -1,4 +1,4 @@
-// throw-ball.js
+// throw-ball.js (修正版)
 
 // 定数定義 
 const MAX_POWER = 50; 
@@ -11,8 +11,7 @@ let lastScore = null;
 AFRAME.registerComponent('throw-ball', {
     init: function () {
         this.isThrowing = false;
-        // ✅ 修正点: isChargingは投球前か投球後かを示すために使用 (マーカー認識とは切り離す)
-        this.isCharging = true; 
+        this.isCharging = true; // メーターの状態と連動
         this.touchDebugEl = document.getElementById('touch-debug');
         this.scoreContainerEl = document.getElementById('score-display-container');
         this.scoreMessageEl = document.getElementById('score-display-message');
@@ -21,7 +20,7 @@ AFRAME.registerComponent('throw-ball', {
         this.powerMeterEl = document.querySelector('[power-meter]');
         this.selectedPower = 0;
         
-        const THREE = AFRAME.THREE; // THREE.jsライブラリを取得
+        const THREE = AFRAME.THREE; 
 
         this.el.addEventListener('click', this.handleClick.bind(this)); 
         this.instructionEl.addEventListener('click', this.handleClick.bind(this));
@@ -35,11 +34,9 @@ AFRAME.registerComponent('throw-ball', {
         this.isMarkerVisible = this.markerEl.object3D.visible;
         this.updateTargetIndicator();
         
-        // 初期状態でチャージを許可 (メーターは常に動いているため)
-        this.setIsCharging(true);
+        this.setIsCharging(true); // メーターを動かす
     },
 
-    // メーターへの状態変更ヘルパー関数
     setIsCharging: function(charging) {
         this.isCharging = charging;
         if (this.powerMeterEl && this.powerMeterEl.components['power-meter']) {
@@ -50,13 +47,11 @@ AFRAME.registerComponent('throw-ball', {
     handleMarkerFound: function() {
         this.isMarkerVisible = true;
         this.updateTargetIndicator();
-        // マーカーが見つかってもメーターのチャージ状態は変更しない
     },
 
     handleMarkerLost: function() {
         this.isMarkerVisible = false;
         this.updateTargetIndicator();
-        // マーカーが見えなくなってもメーターのチャージ状態は変更しない
     },
 
     updateTargetIndicator: function() {
@@ -76,11 +71,8 @@ AFRAME.registerComponent('throw-ball', {
     
     resetThrowState: function() {
         this.isThrowing = false;
-        
-        // チャージを再開 (メーターを再び動かす)
         this.setIsCharging(true); 
 
-        // UIの指示を更新
         if (this.isMarkerVisible) {
              this.instructionEl.innerText = 'タップでパワー決定！';
         } else {
@@ -89,24 +81,26 @@ AFRAME.registerComponent('throw-ball', {
     },
 
     handleClick: function() {
+        // ✅ 修正点1: 投球中は処理しない
+        if (this.isThrowing) return; 
+
         this.touchDebugEl.style.display = 'none'; 
         clearTimeout(this.touchTimer);
         
-        // マーカーが見えていない、または既に投球中の場合は処理を中止
-        if (!this.isMarkerVisible || this.isThrowing) {
-            if (!this.isMarkerVisible) {
-                this.touchDebugEl.style.display = 'block';
-                this.touchDebugEl.innerText = 'マーカーがみえないよ！';
-                this.touchDebugEl.style.color = 'yellow';
-                
-                this.touchTimer = setTimeout(() => {
-                    this.touchDebugEl.style.display = 'none';
-                }, 1500); 
-            }
+        // マーカーが見えていなければ投球不可
+        if (!this.isMarkerVisible) {
+            this.touchDebugEl.style.display = 'block';
+            this.touchDebugEl.innerText = 'マーカーがみえないよ！';
+            this.touchDebugEl.style.color = 'yellow';
+            
+            this.touchTimer = setTimeout(() => {
+                this.touchDebugEl.style.display = 'none';
+            }, 1500); 
             return;
         }
-
-        if (this.isCharging) {
+        
+        // ✅ 修正点2: チャージ中（メーター動作中）であれば投球処理へ
+        if (this.isCharging) { 
             // チャージを停止し、投球
             this.setIsCharging(false); 
             
@@ -115,6 +109,7 @@ AFRAME.registerComponent('throw-ball', {
 
             this.instructionEl.style.display = 'none';
         }
+        // else の場合は、投球処理の結果表示が出ている状態なので、ボタンが効かないのは正しい挙動です。
     },
 
     getScoreMessage: function(powerValue) {
@@ -132,6 +127,10 @@ AFRAME.registerComponent('throw-ball', {
     },
 
     throwBall: function () {
+        // handleClickでガードしているため、基本的にはここには入らないが、念のため
+        if (this.isThrowing) return; 
+        
+        // ✅ 修正点3: 投球開始フラグを立てる (投球アニメーション中に再度クリックされるのを防ぐ)
         this.isThrowing = true;
         
         const powerValue = Math.round(this.selectedPower);
@@ -143,6 +142,7 @@ AFRAME.registerComponent('throw-ball', {
         const ball = document.createElement('a-sphere');
         const THREE = AFRAME.THREE;
         
+        // (省略: ボール生成と初期位置設定)
         const cameraWorldPosition = cameraEl.object3D.position.clone();
         ball.setAttribute('position', { 
             x: cameraWorldPosition.x, 
@@ -170,4 +170,41 @@ AFRAME.registerComponent('throw-ball', {
         const finalTargetY = targetWorldPosition.y + verticalOffset; 
         const finalTargetZ = targetWorldPosition.z;
 
-        const
+        const velocityX = (finalTargetX - cameraWorldPosition.x) / throwDuration;
+        const velocityY = (finalTargetY - cameraWorldPosition.y) / throwDuration;
+        const velocityZ = (finalTargetZ - cameraWorldPosition.z + 0.5) / throwDuration; 
+
+        let step = 0;
+        
+        const updateBall = () => {
+            if (step < steps) {
+                const newX = ball.getAttribute('position').x + velocityX * stepTime;
+                const newY = ball.getAttribute('position').y + velocityY * stepTime;
+                const newZ = ball.getAttribute('position').z + velocityZ * stepTime;
+
+                ball.setAttribute('position', {x: newX, y: newY, z: newZ});
+                
+                step++;
+                requestAnimationFrame(updateBall);
+            } else {
+                sceneEl.removeChild(ball);
+                // ✅ 修正点4: アニメーション終了後に isThrowing を false に戻す
+                this.isThrowing = false; 
+                
+                this.scoreMessageEl.innerHTML = `
+                    ${displayScore} てん<br>
+                    <br>
+                    <small>${result.message}</small>
+                `;
+                this.scoreMessageEl.style.color = result.color;
+                this.scoreMessageEl.style.border = `3px solid ${result.color}`;
+                this.scoreContainerEl.style.display = 'block';
+                
+                lastScore = displayScore;
+                this.lastScoreEl.innerText = `前回: ${lastScore} てん`;
+            }
+        };
+        
+        requestAnimationFrame(updateBall);
+    }
+});
