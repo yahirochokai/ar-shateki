@@ -121,12 +121,12 @@
 </head>
 
 <body>
-    <div id="target-indicator">マーカーを検出！</div>
+    <div id="target-indicator">ロックオン！</div>
     <div id="touch-debug" style="display: none;"></div>
     <div id="last-score-display">前回: -</div>
 
     <div id="throw-instruction">
-        タップ/クリックでパワー決定！
+        ねらってタップ！
     </div>
 
     <div id="score-display-container" style="display: none;">
@@ -257,7 +257,7 @@
                 if (!this.instructionEl) return;
                 
                 if (this.isCharging) {
-                    this.instructionEl.innerText = 'タップ/クリックでパワー決定！';
+                    this.instructionEl.innerText = 'ねらってタップ！';
                     this.instructionEl.style.display = 'block';
                 } else if (!this.isThrowing) {
                      // パワー決定済み、投球待ちの状態 (理論上はマーカー認識後の即時投球のためこの状態は発生しないが念のため)
