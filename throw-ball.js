@@ -1,4 +1,4 @@
-// throw-ball.js (最終デバッグ版 - マーカー認識無視・発射強制)
+// throw-ball.js (最終版 - イベント直結・投球強制)
 
 // 定数定義 
 const MAX_POWER = 50; 
@@ -22,68 +22,63 @@ AFRAME.registerComponent('throw-ball', {
         
         const THREE = AFRAME.THREE; 
 
-        // ❌ 修正点1: HTML要素側のイベントリスナーを削除 (index.htmlのontouchstartに処理を移管)
-        // this.instructionEl.addEventListener('click', this.handleClick.bind(this));
-
+        // ✅ 修正点1: HTML要素へのイベント登録を init 内で直接行う（touchstartを使用）
+        // bind(this)で、handleClickがこのコンポーネントのthisコンテキストで実行されることを保証
+        this.instructionEl.addEventListener('touchstart', this.handleClick.bind(this));
+        
         this.markerEl = this.el.parentNode; 
         
         this.isMarkerVisible = false; 
         this.setIsCharging(true); 
     },
     
-    // tick, handleMarkerFound/Lost は不要になったため削除
+    // ... (tick は削除されたまま) ...
 
     setIsCharging: function(charging) {
         this.isCharging = charging;
         if (this.powerMeterEl && this.powerMeterEl.components['power-meter']) {
             this.powerMeterEl.components['power-meter'].setIsCharging(charging);
         }
-        
-        // メーターの状態が変化したら指示テキストを更新
         this.updateInstructionText();
     },
     
-    // 【✅ 新規追加】指示テキストの更新ロジックを独立
     updateInstructionText: function() {
         if (this.isCharging) {
             this.instructionEl.innerText = 'タップでパワー決定！';
         } else {
-            // 投球中は非表示になるため、このelseはリセット後に一時的に使われる
+            // 投球後のリセット待ち状態
             this.instructionEl.innerText = 'マーカーにねらいをさだめて\nタップ！';
         }
     },
     
-    // 【✅ 更新】マーカーの可視性チェックを完全に無視するよう修正
     updateTargetIndicator: function() {
-        // ロックオン表示は常に非表示
         document.getElementById('target-indicator').style.display = 'none'; 
-        
-        // 指示テキストはチャージ状態でのみ更新
         this.updateInstructionText();
     },
     
     resetThrowState: function() {
         this.isThrowing = false;
-        this.setIsCharging(true); // チャージ開始
-        
-        // リセット後は投球可能状態の指示を出す
+        this.setIsCharging(true); 
         this.updateInstructionText();
     },
 
-    // ✅ handleClick関数: index.htmlの handleTouchStart() から呼ばれる
-    handleClick: function() {
+    // ✅ 修正点2: handleClick内のガードを最小限にする
+    handleClick: function(event) {
+        // タップイベントが3Dシーンに伝播するのを防ぐ
+        if (event) event.preventDefault(); 
+        
         this.touchDebugEl.style.display = 'none'; 
         clearTimeout(this.touchTimer);
         
-        // ❌ マーカー可視性チェックを削除済み
-        
+        // 投球中の場合は処理を中止
         if (this.isThrowing) {
             this.showDebugMessage('投球ちゅう！', 'white', 'blue');
             return;
         }
-
+        
+        // チャージ中の場合のみ、投球を実行
         if (this.isCharging) { 
-            // チャージを停止し、投球
+            // 投球処理開始
             this.setIsCharging(false); 
             
             this.selectedPower = this.powerMeterEl.components['power-meter'].getCurrentPower();
@@ -133,7 +128,6 @@ AFRAME.registerComponent('throw-ball', {
         
         const cameraWorldPosition = cameraEl.object3D.position.clone();
         
-        // マーカーの可視性に関わらず、カメラの正面やや下（Z=-2）を仮想的なターゲット位置とする
         let targetWorldPosition = new THREE.Vector3();
         targetWorldPosition.set(cameraWorldPosition.x, cameraWorldPosition.y, cameraWorldPosition.z - 2);
         
