@@ -1,4 +1,4 @@
-// throw-ball.js (最終修正版)
+// throw-ball.js (最終修正版 - 可視性チェック導入)
 
 // 定数定義 
 const MAX_POWER = 50; 
@@ -22,22 +22,30 @@ AFRAME.registerComponent('throw-ball', {
         
         const THREE = AFRAME.THREE; 
 
-        // ❌ 修正点1: 水色の円（ARエンティティ）へのクリックリスナーを削除
-        // this.el.addEventListener('click', this.handleClick.bind(this)); 
-        
-        // ✅ 修正点2: クリック処理はHTML要素（指示テキスト）のみに一本化
+        // ✅ 投球イベントはHTML要素のみに一本化
         this.instructionEl.addEventListener('click', this.handleClick.bind(this));
 
-        // マーカー認識イベントリスナーの設定
         this.markerEl = this.el.parentNode; 
-        this.markerEl.addEventListener('markerFound', this.handleMarkerFound.bind(this));
-        this.markerEl.addEventListener('markerLost', this.handleMarkerLost.bind(this));
         
-        // 初期状態のチェック
-        this.isMarkerVisible = this.markerEl.object3D.visible;
-        this.updateTargetIndicator();
-        
+        // ❌ markerFound/markerLost イベントリスナーを削除
+        // this.markerEl.addEventListener('markerFound', this.handleMarkerFound.bind(this));
+        // this.markerEl.addEventListener('markerLost', this.handleMarkerLost.bind(this));
+
+        this.isMarkerVisible = false; // 初期値
         this.setIsCharging(true); 
+    },
+    
+    // 【✅ 新規追加】毎フレーム、マーカーの可視性をチェック
+    tick: function () {
+        if (!this.markerEl.object3D) return;
+        
+        const currentVisible = this.markerEl.object3D.visible;
+        
+        // 可視性の状態が変わった場合のみ更新
+        if (currentVisible !== this.isMarkerVisible) {
+            this.isMarkerVisible = currentVisible;
+            this.updateTargetIndicator();
+        }
     },
 
     setIsCharging: function(charging) {
@@ -47,24 +55,18 @@ AFRAME.registerComponent('throw-ball', {
         }
     },
 
-    handleMarkerFound: function() {
-        this.isMarkerVisible = true;
-        this.updateTargetIndicator();
-    },
-
-    handleMarkerLost: function() {
-        this.isMarkerVisible = false;
-        this.updateTargetIndicator();
-    },
+    // ❌ handleMarkerFound/Lost関数は削除（tickで代用）
 
     updateTargetIndicator: function() {
         const indicatorEl = document.getElementById('target-indicator');
         if (this.isMarkerVisible) {
+            // ✅ マーカーが見えている
             indicatorEl.style.display = 'block'; 
             if (this.isCharging) {
                 this.instructionEl.innerText = 'タップでパワー決定！';
             }
         } else {
+            // ✅ マーカーが見えていない
             indicatorEl.style.display = 'none'; 
             if (this.isCharging) {
                 this.instructionEl.innerText = 'マーカーにねらいをさだめて\nタップ！';
@@ -76,6 +78,7 @@ AFRAME.registerComponent('throw-ball', {
         this.isThrowing = false;
         this.setIsCharging(true); 
 
+        // リセット時にも可視性で指示を更新
         if (this.isMarkerVisible) {
              this.instructionEl.innerText = 'タップでパワー決定！';
         } else {
@@ -84,7 +87,7 @@ AFRAME.registerComponent('throw-ball', {
     },
 
     handleClick: function() {
-        // マーカー認識、投球中、チャージ中の状態をチェック
+        // ... (この部分は前回修正と同じロジックを維持) ...
         if (!this.isMarkerVisible) {
             this.showDebugMessage('マーカーがみえないよ！', 'yellow', 'red');
             return;
@@ -96,7 +99,6 @@ AFRAME.registerComponent('throw-ball', {
         }
 
         if (this.isCharging) { 
-            // 投球処理開始
             this.setIsCharging(false); 
             
             this.selectedPower = this.powerMeterEl.components['power-meter'].getCurrentPower();
@@ -107,6 +109,7 @@ AFRAME.registerComponent('throw-ball', {
     },
 
     showDebugMessage: function(message, color, bgColor) {
+        // ... (省略) ...
         this.touchDebugEl.style.display = 'block';
         this.touchDebugEl.innerText = message;
         this.touchDebugEl.style.color = color;
@@ -119,6 +122,7 @@ AFRAME.registerComponent('throw-ball', {
     },
 
     getScoreMessage: function(powerValue) {
+        // ... (省略) ...
         const power = Math.round(powerValue);
 
         if (power === BASE_POWER) {
@@ -133,6 +137,7 @@ AFRAME.registerComponent('throw-ball', {
     },
 
     throwBall: function () {
+        // ... (省略: この関数全体にロジック変更なし) ...
         this.isThrowing = true;
         
         const powerValue = Math.round(this.selectedPower);
