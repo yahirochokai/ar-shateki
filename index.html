@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>WebAR Throwing Game (Pattern Marker)</title>
+    <title>WebAR Throwing Game (Pattern Marker - Power Lock)</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     
@@ -21,7 +21,7 @@
             z-index: 9999; display: none;
         }
         
-        /* タッチ/投球デバッグ表示エリア */
+        /* タッチ/投球デバッグ表示エリア (警告表示用) */
         #touch-debug {
             position: fixed; top: 68%; left: 50%;
             transform: translateX(-50%);
@@ -126,7 +126,7 @@
     <div id="last-score-display">前回: -</div>
 
     <div id="throw-instruction">
-        マーカーにねらいをさだめて<br>タップ！
+        タップ/クリックでパワー決定！
     </div>
 
     <div id="score-display-container" style="display: none;">
@@ -169,9 +169,10 @@
                 this.direction = 1;
                 this.speed = 100;
                 this.meterEl = document.getElementById('power-bar');
-                this.isCharging = true;
+                this.isCharging = true; // メーターが動いている状態
                 
                 this.el.sceneEl.addEventListener('throw-state-changed', (evt) => {
+                    // isChargingがfalseになった場合（パワー決定）、メーターの動きを止める
                     this.isCharging = evt.detail.isCharging;
                     if(this.isCharging) {
                          this.power = 0;
@@ -205,42 +206,44 @@
 
 
         // ------------------------------------
-        // 投球ロジック (マーカー認識対応版)
+        // 投球ロジック (パワー決定条件修正版)
         // ------------------------------------
         AFRAME.registerComponent('throw-ball', {
             init: function () {
                 this.isThrowing = false;
                 this.isTargetLocked = false;
-                this.isCharging = true;
+                this.isCharging = true; // メーター動作中フラグ
+                this.isPowerSet = false; // パワー決定済みフラグ (今回は未使用だが前回ロジックの名残で残しておく)
                 this.touchDebugEl = document.getElementById('touch-debug');
                 this.scoreContainerEl = document.getElementById('score-display-container');
                 this.scoreMessageEl = document.getElementById('score-display-message');
                 this.lastScoreEl = document.getElementById('last-score-display');
                 this.instructionEl = document.getElementById('throw-instruction');
-                this.indicatorEl = document.getElementById('target-indicator'); // 追加
+                this.indicatorEl = document.getElementById('target-indicator');
                 this.powerMeterEl = document.querySelector('[power-meter]');
                 this.selectedPower = 0;
                 
-                // 親のマーカー要素を取得
                 this.markerEl = this.el.parentNode;
 
-                // マウス/タッチ対応のため、両方のイベントリスナーを追加
                 const handleClickBound = this.handleClick.bind(this);
                 
-                // 3Dオブジェクト (a-circle) へのクリックイベント
                 this.el.addEventListener('click', handleClickBound);
                 this.el.addEventListener('touchstart', handleClickBound);
-
-                // 2D UI (div#throw-instruction) へのクリック/タップイベント
                 this.instructionEl.addEventListener('click', handleClickBound);
                 this.instructionEl.addEventListener('touchstart', handleClickBound);
 
-                // マーカーの可視性イベントを購読 (*** 色認識ロジックの代わり ***)
+                // マーカーの可視性イベントを購読
                 this.markerEl.addEventListener('markerFound', () => {
                     this.isTargetLocked = true;
                     this.indicatorEl.style.display = 'block';
+                    
+                    // (旧ロジック) パワー決定済みで、まだ投げていない場合
+                    if (this.isPowerSet && !this.isThrowing) {
+                        this.throwBall(); 
+                    }
                     this.updateInstructionText();
                 });
+                
                 this.markerEl.addEventListener('markerLost', () => {
                     this.isTargetLocked = false;
                     this.indicatorEl.style.display = 'none';
@@ -255,16 +258,24 @@
                 
                 if (this.isCharging) {
                     this.instructionEl.innerText = 'タップ/クリックでパワー決定！';
-                } else if (this.isTargetLocked) {
-                    this.instructionEl.innerText = 'マーカーをねらって\nタップ/クリック！';
+                    this.instructionEl.style.display = 'block';
+                } else if (!this.isThrowing) {
+                     // パワー決定済み、投球待ちの状態 (理論上はマーカー認識後の即時投球のためこの状態は発生しないが念のため)
+                     this.instructionEl.style.display = 'none';
                 } else {
-                    this.instructionEl.innerText = 'マーカーにねらいをさだめて<br>タップ！';
+                    this.instructionEl.style.display = 'none';
+                }
+
+                // 投球中でなければ警告を非表示
+                if (!this.isThrowing) {
+                    this.touchDebugEl.style.display = 'none';
                 }
             },
 
             resetThrowState: function() {
                 this.isCharging = true;
                 this.isThrowing = false;
+                this.isPowerSet = false;
                 this.el.sceneEl.emit('throw-state-changed', { isCharging: true });
                 this.updateInstructionText();
             },
@@ -272,39 +283,41 @@
             handleClick: function(event) {
                 if (event) event.preventDefault();
                 
-                this.touchDebugEl.style.display = 'none';
-                clearTimeout(this.touchTimer);
-                
-                if (this.isThrowing) return;
+                // 投球中、またはパワー決定済みなら無視
+                if (this.isThrowing || this.isPowerSet) return;
 
-                // 投球フェーズ（チャージ完了後）でマーカーが見えていない場合は警告
-                if (!this.isCharging && !this.isTargetLocked) {
+                // 1. チャージ中 かつ マーカー認識OK -> パワー決定 ＆ 即投球
+                if (this.isCharging && this.isTargetLocked) {
+                    
+                    this.selectedPower = this.powerMeterEl.components['power-meter'].getCurrentPower();
+                    
+                    this.isCharging = false;
+                    this.isPowerSet = true;
+                    this.el.sceneEl.emit('throw-state-changed', { isCharging: false }); // メーター停止
+                    
+                    this.throwBall();
+                    this.instructionEl.style.display = 'none';
+                
+                // 2. チャージ中 かつ マーカー認識NG -> 警告表示 & メーター継続
+                } else if (this.isCharging && !this.isTargetLocked) {
+                    
+                    // 警告表示のみ行い、isChargingは true のまま維持（メーターは動き続ける）
                     this.touchDebugEl.style.display = 'block';
-                    this.touchDebugEl.innerText = 'マーカーが見えていません！';
+                    this.touchDebugEl.innerText = 'よくねらってね！';
                     this.touchDebugEl.style.color = 'yellow';
                     this.touchDebugEl.style.backgroundColor = 'rgba(255, 165, 0, 0.7)';
                     
+                    // 一定時間後に警告を非表示にするタイマー
+                    clearTimeout(this.touchTimer);
                     this.touchTimer = setTimeout(() => {
                         this.touchDebugEl.style.display = 'none';
                     }, 1500);
-                    return;
-                }
-                
-                // 1. チャージ中 -> パワー決定
-                if (this.isCharging) {
-                    this.isCharging = false;
-                    this.el.sceneEl.emit('throw-state-changed', { isCharging: false });
-                    
-                    this.selectedPower = this.powerMeterEl.components['power-meter'].getCurrentPower();
-                    this.instructionEl.innerText = this.isTargetLocked ? 'マーカーをねらって\nタップ/クリック！' : 'マーカーを探して\nタップ/クリック！';
-                
-                // 2. チャージ完了後 -> 投球
-                } else if (!this.isCharging && this.isTargetLocked) {
-                    this.throwBall();
-                    this.instructionEl.style.display = 'none';
+
+                    // isChargingはtrueのままなので、次のタップでマーカーが見えていれば投球できる
                 }
             },
 
+            // getScoreMessage と throwBall のロジックは前回から変更なし
             getScoreMessage: function(powerValue) {
                 const power = Math.round(powerValue);
 
@@ -323,6 +336,7 @@
                 if (this.isThrowing) return;
                 
                 this.isThrowing = true;
+                this.touchDebugEl.style.display = 'none'; 
                 
                 const powerValue = Math.round(this.selectedPower);
                 const result = this.getScoreMessage(powerValue);
@@ -362,7 +376,6 @@
                 // 速度計算
                 const velocityX = (targetWorldPosition.x - cameraWorldPosition.x) / throwDuration;
                 const velocityY = (finalTargetY - cameraWorldPosition.y) / throwDuration;
-                // ボール開始Z座標が-0.5のため、目標Zを調整
                 const velocityZ = (targetWorldPosition.z - (cameraWorldPosition.z - 0.5)) / throwDuration;
 
                 let step = 0;
