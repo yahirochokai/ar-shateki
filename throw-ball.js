@@ -1,4 +1,4 @@
-// throw-ball.js (修正版)
+// throw-ball.js (最終修正版)
 
 // 定数定義 
 const MAX_POWER = 50; 
@@ -11,7 +11,7 @@ let lastScore = null;
 AFRAME.registerComponent('throw-ball', {
     init: function () {
         this.isThrowing = false;
-        this.isCharging = true; // メーターの状態と連動
+        this.isCharging = true; 
         this.touchDebugEl = document.getElementById('touch-debug');
         this.scoreContainerEl = document.getElementById('score-display-container');
         this.scoreMessageEl = document.getElementById('score-display-message');
@@ -22,7 +22,10 @@ AFRAME.registerComponent('throw-ball', {
         
         const THREE = AFRAME.THREE; 
 
-        this.el.addEventListener('click', this.handleClick.bind(this)); 
+        // ❌ 修正点1: 水色の円（ARエンティティ）へのクリックリスナーを削除
+        // this.el.addEventListener('click', this.handleClick.bind(this)); 
+        
+        // ✅ 修正点2: クリック処理はHTML要素（指示テキスト）のみに一本化
         this.instructionEl.addEventListener('click', this.handleClick.bind(this));
 
         // マーカー認識イベントリスナーの設定
@@ -34,7 +37,7 @@ AFRAME.registerComponent('throw-ball', {
         this.isMarkerVisible = this.markerEl.object3D.visible;
         this.updateTargetIndicator();
         
-        this.setIsCharging(true); // メーターを動かす
+        this.setIsCharging(true); 
     },
 
     setIsCharging: function(charging) {
@@ -81,27 +84,19 @@ AFRAME.registerComponent('throw-ball', {
     },
 
     handleClick: function() {
-        // ✅ 修正点1: 投球中は処理しない
-        if (this.isThrowing) return; 
-
-        this.touchDebugEl.style.display = 'none'; 
-        clearTimeout(this.touchTimer);
-        
-        // マーカーが見えていなければ投球不可
+        // マーカー認識、投球中、チャージ中の状態をチェック
         if (!this.isMarkerVisible) {
-            this.touchDebugEl.style.display = 'block';
-            this.touchDebugEl.innerText = 'マーカーがみえないよ！';
-            this.touchDebugEl.style.color = 'yellow';
-            
-            this.touchTimer = setTimeout(() => {
-                this.touchDebugEl.style.display = 'none';
-            }, 1500); 
+            this.showDebugMessage('マーカーがみえないよ！', 'yellow', 'red');
             return;
         }
-        
-        // ✅ 修正点2: チャージ中（メーター動作中）であれば投球処理へ
+
+        if (this.isThrowing) {
+            this.showDebugMessage('投球ちゅう！', 'white', 'blue');
+            return;
+        }
+
         if (this.isCharging) { 
-            // チャージを停止し、投球
+            // 投球処理開始
             this.setIsCharging(false); 
             
             this.selectedPower = this.powerMeterEl.components['power-meter'].getCurrentPower();
@@ -109,7 +104,18 @@ AFRAME.registerComponent('throw-ball', {
 
             this.instructionEl.style.display = 'none';
         }
-        // else の場合は、投球処理の結果表示が出ている状態なので、ボタンが効かないのは正しい挙動です。
+    },
+
+    showDebugMessage: function(message, color, bgColor) {
+        this.touchDebugEl.style.display = 'block';
+        this.touchDebugEl.innerText = message;
+        this.touchDebugEl.style.color = color;
+        this.touchDebugEl.style.backgroundColor = `rgba(${bgColor === 'red' ? '255, 0, 0' : '0, 0, 255'}, 0.7)`;
+        
+        clearTimeout(this.touchTimer);
+        this.touchTimer = setTimeout(() => {
+            this.touchDebugEl.style.display = 'none';
+        }, 1500); 
     },
 
     getScoreMessage: function(powerValue) {
@@ -127,10 +133,6 @@ AFRAME.registerComponent('throw-ball', {
     },
 
     throwBall: function () {
-        // handleClickでガードしているため、基本的にはここには入らないが、念のため
-        if (this.isThrowing) return; 
-        
-        // ✅ 修正点3: 投球開始フラグを立てる (投球アニメーション中に再度クリックされるのを防ぐ)
         this.isThrowing = true;
         
         const powerValue = Math.round(this.selectedPower);
@@ -142,7 +144,6 @@ AFRAME.registerComponent('throw-ball', {
         const ball = document.createElement('a-sphere');
         const THREE = AFRAME.THREE;
         
-        // (省略: ボール生成と初期位置設定)
         const cameraWorldPosition = cameraEl.object3D.position.clone();
         ball.setAttribute('position', { 
             x: cameraWorldPosition.x, 
@@ -188,7 +189,6 @@ AFRAME.registerComponent('throw-ball', {
                 requestAnimationFrame(updateBall);
             } else {
                 sceneEl.removeChild(ball);
-                // ✅ 修正点4: アニメーション終了後に isThrowing を false に戻す
                 this.isThrowing = false; 
                 
                 this.scoreMessageEl.innerHTML = `
