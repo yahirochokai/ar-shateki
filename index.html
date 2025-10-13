@@ -7,7 +7,7 @@
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     
     <style>
-        /* CSSコード (変更なし) */
+        /* CSSコード (大部分変更なし) */
         body { margin: 0; overflow: hidden; }
         canvas { touch-action: none; } 
 
@@ -26,7 +26,7 @@
             position: fixed; top: 68%; left: 50%;
             transform: translateX(-50%);
             color: yellow; font-size: 20px;
-            background-color: rgba(255, 0, 0, 0.7); 
+            background-color: rgba(255, 165, 0, 0.7); 
             padding: 5px 15px; border-radius: 5px;
             z-index: 9999; display: none;
         }
@@ -98,13 +98,15 @@
             cursor: pointer; margin-bottom: 0; 
         }
         
-        /* *** 前回得点表示エリア (画面右上) *** */
-        #last-score-display {
+        /* *** スコア履歴表示エリア (画面右上) *** */
+        #score-history-display {
             position: fixed; top: 10px; right: 10px;
-            color: white; font-size: 20px;
+            color: white; font-size: 18px; /* 少し小さく */
             background-color: rgba(0, 0, 0, 0.7);
             padding: 10px 15px; border-radius: 5px;
             z-index: 9999; font-family: monospace;
+            white-space: pre; /* 改行を有効にする */
+            line-height: 1.5; /* 行間を広げる */
         }
         
         /* *** 投球指示テキスト (HTML要素) *** */
@@ -123,14 +125,14 @@
 <body>
     <div id="target-indicator">ロックオン！</div>
     <div id="touch-debug" style="display: none;"></div>
-    <div id="last-score-display">前回: -</div>
+    <div id="score-history-display"></div>
 
     <div id="throw-instruction">
         ねらってタップ！
     </div>
 
     <div id="score-display-container" style="display: none;">
-        <button id="reset-button" onclick="resetGame()">もう1かい</button>
+        <button id="reset-button" onclick="handleReset()">もう1かい</button>
         <div id="score-display-message"></div>
     </div>
 
@@ -145,23 +147,62 @@
         const THREE = AFRAME.THREE;
         const MAX_POWER = 50;
         const BASE_POWER = 25;
-        let lastScore = null;
+        
+        // スコア管理用の新しいグローバル変数
+        let scores = [0, 0, 0, 0];
+        let playCount = 0;
+        const MAX_PLAY_COUNT = 4;
+        
+        // ------------------------------------
+        // スコア表示更新関数
+        // ------------------------------------
+        function updateScoreHistory() {
+            const historyEl = document.getElementById('score-history-display');
+            let totalScore = 0;
+            let historyText = '';
 
-        // ゲームリセット関数 (onclickから呼ばれる)
+            for (let i = 0; i < MAX_PLAY_COUNT; i++) {
+                const score = scores[i];
+                const scoreDisplay = score > 0 ? score : '―';
+                historyText += `${i + 1}かいめ　${scoreDisplay}てん\n`;
+                totalScore += score;
+            }
+
+            historyText += `ごうけい　${totalScore}てん`;
+            historyEl.innerText = historyText;
+        }
+
+        // ------------------------------------
+        // ゲームリセット/終了処理ハンドラ
+        // ------------------------------------
         function resetGame() {
+            // スコアをリセットしない
             const throwBallEl = document.getElementById('throwButton');
-
+            
             document.getElementById('score-display-container').style.display = 'none';
             document.getElementById('throw-instruction').style.display = 'block';
             document.getElementById('touch-debug').style.display = 'none';
+            document.getElementById('reset-button').innerText = 'もう1かい';
 
             if (throwBallEl && throwBallEl.components['throw-ball']) {
                 throwBallEl.components['throw-ball'].resetThrowState();
             }
         }
+        
+        function handleReset() {
+            if (playCount >= MAX_PLAY_COUNT) {
+                // 4回完了後の「けっかをみせてね！」クリックでは何もしない（再読み込みでリトライ）
+                console.log('ゲーム終了。再読み込みしてください。');
+                return;
+            }
+            resetGame();
+        }
+
+        // 初回実行
+        updateScoreHistory();
 
         // ------------------------------------
-        // パワーメーターロジック
+        // パワーメーターロジック (変更なし)
         // ------------------------------------
         AFRAME.registerComponent('power-meter', {
             init: function () {
@@ -172,7 +213,6 @@
                 this.isCharging = true; // メーターが動いている状態
                 
                 this.el.sceneEl.addEventListener('throw-state-changed', (evt) => {
-                    // isChargingがfalseになった場合（パワー決定）、メーターの動きを止める
                     this.isCharging = evt.detail.isCharging;
                     if(this.isCharging) {
                          this.power = 0;
@@ -206,18 +246,17 @@
 
 
         // ------------------------------------
-        // 投球ロジック (パワー決定条件修正版)
+        // 投球ロジック (スコア管理と回数制限を追加)
         // ------------------------------------
         AFRAME.registerComponent('throw-ball', {
             init: function () {
                 this.isThrowing = false;
                 this.isTargetLocked = false;
                 this.isCharging = true; // メーター動作中フラグ
-                this.isPowerSet = false; // パワー決定済みフラグ (今回は未使用だが前回ロジックの名残で残しておく)
+                this.isPowerSet = false; // パワー決定済みフラグ 
                 this.touchDebugEl = document.getElementById('touch-debug');
                 this.scoreContainerEl = document.getElementById('score-display-container');
                 this.scoreMessageEl = document.getElementById('score-display-message');
-                this.lastScoreEl = document.getElementById('last-score-display');
                 this.instructionEl = document.getElementById('throw-instruction');
                 this.indicatorEl = document.getElementById('target-indicator');
                 this.powerMeterEl = document.querySelector('[power-meter]');
@@ -236,11 +275,6 @@
                 this.markerEl.addEventListener('markerFound', () => {
                     this.isTargetLocked = true;
                     this.indicatorEl.style.display = 'block';
-                    
-                    // (旧ロジック) パワー決定済みで、まだ投げていない場合
-                    if (this.isPowerSet && !this.isThrowing) {
-                        this.throwBall(); 
-                    }
                     this.updateInstructionText();
                 });
                 
@@ -256,14 +290,14 @@
             updateInstructionText: function() {
                 if (!this.instructionEl) return;
                 
-                if (this.isCharging) {
+                if (playCount >= MAX_PLAY_COUNT) {
+                    this.instructionEl.innerText = `4回終了！「けっかをみせてね！」を押してください。`;
+                    this.instructionEl.style.display = 'block';
+                } else if (this.isCharging) {
                     this.instructionEl.innerText = 'ねらってタップ！';
                     this.instructionEl.style.display = 'block';
-                } else if (!this.isThrowing) {
-                     // パワー決定済み、投球待ちの状態 (理論上はマーカー認識後の即時投球のためこの状態は発生しないが念のため)
-                     this.instructionEl.style.display = 'none';
                 } else {
-                    this.instructionEl.style.display = 'none';
+                     this.instructionEl.style.display = 'none';
                 }
 
                 // 投球中でなければ警告を非表示
@@ -283,6 +317,9 @@
             handleClick: function(event) {
                 if (event) event.preventDefault();
                 
+                // 4回完了後は操作を無効化
+                if (playCount >= MAX_PLAY_COUNT) return;
+                
                 // 投球中、またはパワー決定済みなら無視
                 if (this.isThrowing || this.isPowerSet) return;
 
@@ -301,23 +338,20 @@
                 // 2. チャージ中 かつ マーカー認識NG -> 警告表示 & メーター継続
                 } else if (this.isCharging && !this.isTargetLocked) {
                     
-                    // 警告表示のみ行い、isChargingは true のまま維持（メーターは動き続ける）
                     this.touchDebugEl.style.display = 'block';
                     this.touchDebugEl.innerText = 'よくねらってね！';
                     this.touchDebugEl.style.color = 'yellow';
                     this.touchDebugEl.style.backgroundColor = 'rgba(255, 165, 0, 0.7)';
                     
-                    // 一定時間後に警告を非表示にするタイマー
                     clearTimeout(this.touchTimer);
                     this.touchTimer = setTimeout(() => {
                         this.touchDebugEl.style.display = 'none';
                     }, 1500);
 
-                    // isChargingはtrueのままなので、次のタップでマーカーが見えていれば投球できる
+                    // isCharging は true のままなので、メーターは動き続ける
                 }
             },
 
-            // getScoreMessage と throwBall のロジックは前回から変更なし
             getScoreMessage: function(powerValue) {
                 const power = Math.round(powerValue);
 
@@ -342,9 +376,17 @@
                 const result = this.getScoreMessage(powerValue);
                 const displayScore = BASE_POWER - Math.abs(powerValue - BASE_POWER);
 
+                // --- スコア管理ロジックの追加 ---
+                playCount++;
+                scores[playCount - 1] = displayScore;
+                updateScoreHistory();
+                // -----------------------------
+
                 const sceneEl = this.el.sceneEl;
                 const cameraEl = sceneEl.camera.el;
                 const ball = document.createElement('a-sphere');
+                
+                // ... (投球アニメーションロジックは変更なし) ...
                 
                 const cameraWorldPosition = cameraEl.object3D.position.clone();
                 ball.setAttribute('position', { 
@@ -362,10 +404,8 @@
                 const steps = 30;
                 const stepTime = throwDuration / steps;
 
-                // ターゲット位置をマーカーのワールド座標に設定
                 const targetWorldPosition = this.el.object3D.getWorldPosition(new THREE.Vector3());
                 
-                // パワーに応じたY軸のオフセット（仰角）
                 const MAX_OFFSET_Y = 1.0;
                 const powerDiff = powerValue - BASE_POWER;
                 const offsetScaleY = powerDiff * 0.05;
@@ -373,7 +413,6 @@
                 
                 const finalTargetY = targetWorldPosition.y + verticalOffset;
 
-                // 速度計算
                 const velocityX = (targetWorldPosition.x - cameraWorldPosition.x) / throwDuration;
                 const velocityY = (finalTargetY - cameraWorldPosition.y) / throwDuration;
                 const velocityZ = (targetWorldPosition.z - (cameraWorldPosition.z - 0.5)) / throwDuration;
@@ -404,8 +443,14 @@
                         this.scoreMessageEl.style.border = `3px solid ${result.color}`;
                         this.scoreContainerEl.style.display = 'block';
                         
-                        lastScore = displayScore;
-                        this.lastScoreEl.innerText = `前回: ${lastScore} てん`;
+                        // --- 4回プレイ後の処理 ---
+                        if (playCount >= MAX_PLAY_COUNT) {
+                            document.getElementById('reset-button').innerText = 'けっかをみせてね！';
+                            this.instructionEl.style.display = 'block';
+                            this.instructionEl.innerText = `4回終了！「けっかをみせてね！」を押してください。`;
+                        } else {
+                            document.getElementById('reset-button').innerText = 'もう1かい';
+                        }
                     }
                 };
                 
