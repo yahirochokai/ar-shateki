@@ -8,187 +8,138 @@
     
     <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v7.2.0/dist/aframe-extras.min.js"></script>
 
+    <script src="./power-meter.js"></script> 
     <script src="./throw-ball.js"></script> 
-    <script src="./power-meter.js"></script> <style>
+
+    <style>
         /* CSSコードは提供されたものをすべてそのまま残します */
         body { margin: 0; overflow: hidden; }
         canvas { touch-action: none; } 
 
-        /* ターゲットロックインジケーター (必須要素として維持) */
+        /* ターゲットロックインジケーター */
         #target-indicator {
-            position: fixed;
-            top: 30%; 
-            left: 50%;
+            position: fixed; top: 30%; left: 50%;
             transform: translateX(-50%);
-            color: white;
-            font-size: 24px;
+            color: white; font-size: 24px;
             background-color: rgba(0, 0, 0, 0.5);
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 10px 20px; border-radius: 5px;
             z-index: 9999;
-            /* マーカー認識では常にマーカーの表示/非表示に依存するため、初期は非表示 */
+            /* ✅ 修正点: 初期状態を非表示にする */
             display: none; 
         }
 
         /* デバッグ情報表示エリア (CSSはそのまま残すが、HTML側でコメントアウト) */
         #debug-info {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-size: 14px;
+            position: fixed; top: 10px; left: 10px;
+            color: white; font-size: 14px;
             background-color: rgba(0, 0, 0, 0.7);
-            padding: 5px 10px;
-            border-radius: 3px;
-            z-index: 9998;
-            font-family: monospace;
+            padding: 5px 10px; border-radius: 3px;
+            z-index: 9998; font-family: monospace;
             display: none !important; 
         }
         
         /* タッチ/投球デバッグ表示エリア (エラー表示に転用) */
         #touch-debug {
-            position: fixed;
-            top: 68%;
-            left: 50%;
+            position: fixed; top: 68%; left: 50%;
             transform: translateX(-50%);
-            color: yellow;
-            font-size: 20px;
+            color: yellow; font-size: 20px;
             background-color: rgba(255, 0, 0, 0.7); 
-            padding: 5px 15px;
-            border-radius: 5px;
+            padding: 5px 15px; border-radius: 5px;
             z-index: 9999;
             display: none;
         }
 
         /* *** パワーメーターエリア *** */
         #power-meter {
-            position: fixed;
-            top: 50%;
-            left: 10px;
+            position: fixed; top: 50%; left: 10px;
             transform: translateY(-50%);
-            width: 25px;
-            height: 200px;
+            width: 25px; height: 200px;
             background-color: rgba(255, 255, 255, 0.2);
-            border: 2px solid white;
-            border-radius: 5px;
-            z-index: 9997;
-            overflow: hidden;
+            border: 2px solid white; border-radius: 5px;
+            z-index: 9997; overflow: hidden;
             position: fixed; 
         }
 
         /* パワーバー */
         #power-bar {
-            width: 100%;
-            height: 0%;
+            width: 100%; height: 0%;
             background: linear-gradient(to top, #FF0000 0%, #FFA500 40%, #00FF00 60%, #FFA500 80%, #FF0000 100%);
-            position: absolute;
-            bottom: 0;
+            position: absolute; bottom: 0;
             transition: none; 
         }
 
         /* 【追加】ターゲットライン */
         #target-line {
-            position: absolute;
-            top: 50%; /* パワーメーターの中央 (25点) */
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background-color: white;
-            z-index: 1; /* パワーバーの上に表示 */
-            transform: translateY(-50%); /* 中央揃えのため */
+            position: absolute; top: 50%; 
+            left: 0; width: 100%; height: 2px;
+            background-color: white; z-index: 1; 
+            transform: translateY(-50%); 
         }
 
         /* 【追加】パワーメーター指示テキスト */
         #power-instruction {
-            position: fixed;
-            top: 50%;
-            left: 45px; /* パワーメーターの右隣に配置 */
+            position: fixed; top: 50%; left: 45px; 
             transform: translateY(-50%);
-            color: white;
-            font-size: 16px; /* 小さめに表示 */
-            white-space: nowrap; /* 折り返しを防ぐ */
-            z-index: 9997;
-            pointer-events: none; /* クリックイベントをブロックしない */
+            color: white; font-size: 16px; 
+            white-space: nowrap; z-index: 9997;
+            pointer-events: none; 
         }
         
         /* *** 結果表示エリア (画面中央) *** */
         #score-display-container {
-            position: fixed;
-            top: 50%;
-            left: 50%;
+            position: fixed; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            z-index: 10000;
-            display: none;
+            z-index: 10000; display: none;
             text-align: center;
         }
         #score-display-message {
-            color: white;
-            font-size: 32px; 
+            color: white; font-size: 32px; 
             font-weight: bold;
             background-color: rgba(0, 0, 0, 0.8);
-            padding: 20px 20px; 
-            border-radius: 10px;
-            margin-top: 15px; 
-            line-height: 1.2;
+            padding: 20px 20px; border-radius: 10px;
+            margin-top: 15px; line-height: 1.2;
         }
         
         /* 結果テキストのサイズを調整 */
         #score-display-message small {
-            font-size: 20px; 
-            display: block; 
+            font-size: 20px; display: block; 
             line-height: 1.0;
         }
         
         /* *** 「もう1かい」ボタン *** */
         #reset-button {
-            display: block;
-            margin: 0 auto;
-            font-size: 24px;
-            font-weight: bold;
-            color: #111;
-            background-color: #eee;
+            display: block; margin: 0 auto;
+            font-size: 24px; font-weight: bold;
+            color: #111; background-color: #eee;
             border: 3px solid #111;
-            padding: 10px 30px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-bottom: 0; 
+            padding: 10px 30px; border-radius: 8px;
+            cursor: pointer; margin-bottom: 0; 
         }
         
         /* *** 前回得点表示エリア (画面右上) *** */
         #last-score-display {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            color: white;
-            font-size: 20px;
+            position: fixed; top: 10px; right: 10px;
+            color: white; font-size: 20px;
             background-color: rgba(0, 0, 0, 0.7);
-            padding: 10px 15px;
-            border-radius: 5px;
-            z-index: 9999;
-            font-family: monospace;
+            padding: 10px 15px; border-radius: 5px;
+            z-index: 9999; font-family: monospace;
         }
         
         /* *** 投球指示テキスト (HTML要素) *** */
         #throw-instruction {
-            position: fixed;
-            top: 60%; 
-            left: 50%;
+            position: fixed; top: 60%; left: 50%;
             transform: translateX(-50%);
-            color: white;
-            font-size: 20px;
+            color: white; font-size: 20px;
             background-color: rgba(0, 0, 0, 0.6);
-            padding: 5px 15px;
-            border-radius: 5px;
-            z-index: 9996;
-            cursor: pointer; 
-            text-align: center; 
-            line-height: 1.2;
+            padding: 5px 15px; border-radius: 5px;
+            z-index: 9996; cursor: pointer; 
+            text-align: center; line-height: 1.2;
         }
     </style>
 </head>
 
 <body>
-    <div id="target-indicator">ロックオン！</div>
+    <div id="target-indicator" style="display: none;">ロックオン！</div>
     <div id="touch-debug" style="display: none;"></div>
     <div id="last-score-display">前回: -</div>
 
@@ -196,7 +147,7 @@
         マーカーにねらいをさだめて<br>タップ！
     </div>
 
-    <div id="score-display-container">
+    <div id="score-display-container" style="display: none;">
         <button id="reset-button" onclick="resetGame()">もう1かい</button>
         <div id="score-display-message"></div>
     </div>
@@ -226,12 +177,16 @@
         embedded 
         arjs='sourceType: webcam; trackingMethod: best; debugUIEnabled: false;'
         raycaster="objects: [throw-ball];"
-        power-meter> <a-marker type='pattern' url='./shatekimato.patt'>
+        power-meter>
+        
+        <a-marker type='pattern' url='./shatekimato.patt'>
             <a-circle 
                 id="throwButton" 
                 color="#00FFFF" 
                 radius="0.15" 
-                position="0 0 0" rotation="-90 0 0" opacity="0.5"
+                position="0 0 0" 
+                rotation="-90 0 0" 
+                opacity="0.5"
                 throw-ball>
             </a-circle>
         </a-marker>
