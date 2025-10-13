@@ -94,7 +94,7 @@
             font-size: 20px; font-weight: bold;
             color: #111; background-color: #eee;
             border: 3px solid #111;
-            padding: 10px 50px; border-radius: 8px;
+            padding: 10px 20px; border-radius: 8px;
             cursor: pointer; margin-bottom: 0; 
         }
         
@@ -291,7 +291,7 @@
                 if (!this.instructionEl) return;
                 
                 if (playCount >= MAX_PLAY_COUNT) {
-                    this.instructionEl.innerText = `4回終了！「けっかをみせてね！」を押してください。`;
+                    this.instructionEl.innerText = `ゲームしゅうりょう！`;
                     this.instructionEl.style.display = 'block';
                 } else if (this.isCharging) {
                     this.instructionEl.innerText = 'ねらってタップ！';
