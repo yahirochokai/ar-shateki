@@ -7,18 +7,30 @@
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     
     <style>
-        /* CSSコード (変更なし) */
+        /* CSSコード */
         body { margin: 0; overflow: hidden; }
         canvas { touch-action: none; } 
 
-        /* ターゲットロックインジケーター */
+        /* ターゲットロックインジケーター (lockon.png を使用) */
         #target-indicator {
             position: fixed; top: 30%; left: 50%;
             transform: translateX(-50%);
-            color: white; font-size: 24px;
-            background-color: rgba(0, 0, 0, 0.5);
-            padding: 10px 20px; border-radius: 5px;
-            z-index: 9999; display: none;
+            /* color, font-size, background-color, padding, border-radius はテキスト表示時に使うプロパティなので削除またはコメントアウト */
+            /* color: white; */ 
+            /* font-size: 24px; */
+            /* background-color: rgba(0, 0, 0, 0.5); */
+            /* padding: 10px 20px; */ 
+            /* border-radius: 5px; */
+            z-index: 9999; 
+            display: none;
+            /* 画像のためのスタイル */
+            width: 200px; /* 画像の幅を調整 */
+            height: auto; /* 高さは自動調整 */
+        }
+        #target-indicator img {
+            width: 100%;
+            height: auto;
+            display: block; /* 余白をなくす */
         }
         
         /* タッチ/投球デバッグ表示エリア (警告表示用) */
@@ -122,8 +134,8 @@
             background-size: contain; 
             background-repeat: no-repeat; 
             background-position: center; 
-            width: 150px; 
-            height: 150px; 
+            width: 200px; /* 例: 幅を200pxに */
+            height: 200px; /* 例: 高さを200pxに */
             border-radius: 5px; 
             z-index: 9996; cursor: pointer; 
             text-align: center; 
@@ -137,13 +149,16 @@
             border: none; 
         }
         
-        /* 完了後のメッセージスタイル (テキスト表示に切り替わる) */
+        /* 完了後のメッセージスタイル (gameover.png を使用) */
         #throw-instruction.game-over {
-            background-image: none; 
-            background-color: rgba(0, 0, 0, 0.6); 
-            width: auto; 
-            height: auto; 
-            padding: 5px 15px; 
+            background-image: url('gameover.png'); /* gameover.png を背景画像に設定 */
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: transparent; /* 背景色を透明に */
+            width: 250px; /* gameover.png の幅を調整 */
+            height: 100px; /* gameover.png の高さを調整 */
+            padding: 0; /* テキストがないのでパディングは不要 */
             border: none;
         }
     </style>
@@ -157,10 +172,8 @@
                 { id: 'hit_great', src: 'hit_great.mp3' }, // かみわざ！！
                 { id: 'hit_good', src: 'hit_good.mp3' },   // すごい！
                 { id: 'hit', src: 'hit.mp3' },             // やったね！
-                { id: 'hazure', src: 'hazure.mp3' },        // ざんねん…！
-                // --- サウンド追加箇所 ---
-                { id: 'gameover', src: 'gameover.mp3' } // ゲーム終了時
-                // ---------------------
+                { id: 'hazure', src: 'hazure.mp3' },       // ざんねん…！
+                { id: 'gameover', src: 'gameover.mp3' }    // ゲーム終了時サウンド
             ];
 
             soundList.forEach(s => {
@@ -187,7 +200,9 @@
 </head>
 
 <body>
-    <div id="target-indicator">ロックオン！</div>
+    <div id="target-indicator">
+        <img src="lockon.png" alt="ロックオン！">
+    </div>
     <div id="touch-debug" style="display: none;"></div>
     <div id="score-history-display"></div>
 
@@ -319,13 +334,13 @@
 
                 this.markerEl.addEventListener('markerFound', () => {
                     this.isTargetLocked = true;
-                    this.indicatorEl.style.display = 'block';
+                    this.indicatorEl.style.display = 'block'; // ロックオン画像を常に表示
                     this.updateInstructionText();
                 });
                 
                 this.markerEl.addEventListener('markerLost', () => {
                     this.isTargetLocked = false;
-                    this.indicatorEl.style.display = 'none';
+                    this.indicatorEl.style.display = 'none'; // ロックオン画像を非表示
                     this.updateInstructionText();
                 });
                 
@@ -337,11 +352,11 @@
                 
                 if (playCount >= MAX_PLAY_COUNT) {
                     this.instructionEl.classList.add('game-over'); 
-                    this.instructionEl.innerText = `ゲームしゅうりょう！`;
-                    this.instructionEl.style.display = 'block';
+                    this.instructionEl.innerHTML = ''; // ゲームオーバー時はテキストを空にし、背景画像で表示
+                    this.instructionEl.style.display = 'flex'; 
                 } else if (this.isCharging) {
                     this.instructionEl.classList.remove('game-over'); 
-                    this.instructionEl.innerText = ''; 
+                    this.instructionEl.innerHTML = ''; // タップボタン画像を表示するためテキストを空に
                     this.instructionEl.style.display = 'flex'; 
                 } else {
                      this.instructionEl.style.display = 'none';
@@ -492,12 +507,11 @@
                         if (playCount >= MAX_PLAY_COUNT) {
                             document.getElementById('reset-button').innerText = 'けっかをみせてね！';
                             this.instructionEl.style.display = 'block';
-                            this.instructionEl.innerText = `ゲームしゅうりょう！`;
+                            // ゲームオーバー時は背景画像で表示するのでinnerTextは空
+                            this.instructionEl.innerHTML = ''; 
                             this.instructionEl.classList.add('game-over'); 
                             
-                            // --- ゲームオーバー時のサウンド再生 ---
                             playSound('gameover');
-                            // ------------------------------------
                         } else {
                             document.getElementById('reset-button').innerText = 'もう1かい';
                             this.instructionEl.classList.remove('game-over'); 
