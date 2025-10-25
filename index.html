@@ -26,20 +26,22 @@
             display: block; 
         }
         
-        /* タッチ/投球デバッグ表示エリア (caution.png を使用) */
+        /* タッチ/投球デバッグ表示エリア (テキスト表示に戻す) */
         #touch-debug {
             position: fixed; top: 68%; left: 50%;
             transform: translateX(-50%);
             z-index: 9999; 
             display: none;
-            width: 200px; 
-            height: auto; 
+            /* 👈 修正: テキスト表示に必要なスタイルを復活 */
+            color: yellow; 
+            font-size: 16px; 
+            background-color: rgba(255, 165, 0, 0.7); 
+            padding: 5px 15px; 
+            border-radius: 5px;
+            white-space: nowrap; 
+            /* 画像用のwidth, heightは削除 */
         }
-        #touch-debug img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
+        /* 画像表示用の#touch-debug img{} は不要になったため削除 */
 
         /* *** パワーメーターエリア *** */
         #power-meter {
@@ -103,19 +105,19 @@
             display: block; margin: 0 auto;
             cursor: pointer;
             white-space: nowrap;
-            background-image: url('next.png'); /* 👈 修正: 初期値はnext.png */
+            background-image: url('next.png'); 
             background-size: contain; 
             background-repeat: no-repeat; 
             background-position: center; 
-            width: 200px; /* next.png に合わせてサイズ調整 */
-            height: 80px; /* next.png に合わせてサイズ調整 */
+            width: 200px; 
+            height: 80px; 
             background-color: transparent; 
             border: none; 
         }
         #reset-button.game-over-button {
-            background-image: url('attend.png'); /* 最終結果表示用はattend.png */
-            width: 250px; /* attend.png に合わせてサイズ調整 */
-            height: 80px; /* attend.png に合わせてサイズ調整 */
+            background-image: url('attend.png'); 
+            width: 250px; 
+            height: 80px; 
         }
 
         /* *** スコア履歴表示エリア (画面右上) *** */
@@ -210,7 +212,7 @@
         <img src="lockon.png" alt="ロックオン！">
     </div>
     <div id="touch-debug" style="display: none;">
-        <img src="caution.png" alt="よくねらってね！">
+        よくねらってね！
     </div>
     <div id="score-history-display"></div>
 
@@ -263,10 +265,10 @@
             document.getElementById('touch-debug').style.display = 'none';
             
             // 「もう1かい」の画像をnext.pngに設定
-            resetButtonEl.style.backgroundImage = "url('next.png')"; // 👈 修正
-            resetButtonEl.classList.remove('game-over-button'); // ゲームオーバー時のスタイルを解除
-            resetButtonEl.style.width = '200px'; // next.png に合わせてサイズ調整
-            resetButtonEl.style.height = '80px'; // next.png に合わせてサイズ調整
+            resetButtonEl.style.backgroundImage = "url('next.png')"; 
+            resetButtonEl.classList.remove('game-over-button'); 
+            resetButtonEl.style.width = '200px'; 
+            resetButtonEl.style.height = '80px'; 
 
             if (throwBallEl && throwBallEl.components['throw-ball']) {
                 throwBallEl.components['throw-ball'].resetThrowState();
@@ -361,8 +363,8 @@
                 });
                 
                 this.updateInstructionText();
-                // 初期状態の「もう1かい」ボタンの背景画像をnext.pngに設定
-                this.resetButtonEl.style.backgroundImage = "url('next.png')"; // 👈 修正
+                
+                this.resetButtonEl.style.backgroundImage = "url('next.png')"; 
                 this.resetButtonEl.style.width = '200px'; 
                 this.resetButtonEl.style.height = '80px'; 
             },
@@ -395,7 +397,7 @@
                 this.updateInstructionText();
 
                 // 「もう1かい」ボタンを通常の画像に戻す (next.png)
-                this.resetButtonEl.style.backgroundImage = "url('next.png')"; // 👈 修正
+                this.resetButtonEl.style.backgroundImage = "url('next.png')"; 
                 this.resetButtonEl.classList.remove('game-over-button');
                 this.resetButtonEl.style.width = '200px'; 
                 this.resetButtonEl.style.height = '80px';
@@ -424,7 +426,7 @@
                 } else if (this.isCharging && !this.isTargetLocked) {
                     
                     this.touchDebugEl.style.display = 'block';
-                    this.touchDebugEl.innerHTML = ''; 
+                    // 👈 修正: innerHTMLの変更は不要になりました（HTMLに直接テキストを記述したため）
                     
                     clearTimeout(this.touchTimer);
                     this.touchTimer = setTimeout(() => {
@@ -541,7 +543,7 @@
                             playSound('gameover');
                         } else {
                             // 「もう1かい」ボタンに next.png を設定
-                            this.resetButtonEl.style.backgroundImage = "url('next.png')"; // 👈 修正
+                            this.resetButtonEl.style.backgroundImage = "url('next.png')"; 
                             this.resetButtonEl.classList.remove('game-over-button');
                             this.resetButtonEl.style.width = '200px'; 
                             this.resetButtonEl.style.height = '80px';
