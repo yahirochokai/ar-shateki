@@ -15,35 +15,30 @@
         #target-indicator {
             position: fixed; top: 25%; left: 50%;
             transform: translateX(-50%);
-            /* color, font-size, background-color, padding, border-radius はテキスト表示時に使うプロパティなので削除またはコメントアウト */
-            /* color: white; */ 
-            /* font-size: 24px; */
-            /* background-color: rgba(0, 0, 0, 0.5); */
-            /* padding: 10px 20px; */ 
-            /* border-radius: 5px; */
             z-index: 9999; 
             display: none;
-            /* 画像のためのスタイル */
-            width: 200px; /* 画像の幅を調整 */
-            height: auto; /* 高さは自動調整 */
+            width: 200px; 
+            height: auto; 
         }
         #target-indicator img {
             width: 100%;
             height: auto;
-            display: block; /* 余白をなくす */
+            display: block; 
         }
         
-        /* タッチ/投球デバッグ表示エリア (警告表示用) */
+        /* タッチ/投球デバッグ表示エリア (caution.png を使用) */
         #touch-debug {
             position: fixed; top: 68%; left: 50%;
             transform: translateX(-50%);
-            color: yellow; 
-            font-size: 16px; /* 👈 修正: 20pxから16pxに変更し、改行を防ぎます */
-            background-color: rgba(255, 165, 0, 0.7); 
-            padding: 5px 15px; border-radius: 5px;
             z-index: 9999; 
             display: none;
-            white-space: nowrap; /* 念のため追加: 強制的に改行を防ぎます */
+            width: 200px; 
+            height: auto; 
+        }
+        #touch-debug img {
+            width: 100%;
+            height: auto;
+            display: block;
         }
 
         /* *** パワーメーターエリア *** */
@@ -103,17 +98,26 @@
             line-height: 1.0;
         }
         
-        /* *** 「もう1かい」ボタン *** */
+        /* *** 「もう1かい」ボタン (next.pngを使用) / 「けっかをみせてね！」ボタン (attend.png を使用) *** */
         #reset-button {
             display: block; margin: 0 auto;
-            font-size: 20px; font-weight: bold;
-            color: #111; background-color: #eee;
-            border: 3px solid #111;
-            padding: 10px 20px; border-radius: 8px;
             cursor: pointer;
             white-space: nowrap;
+            background-image: url('next.png'); /* 👈 修正: 初期値はnext.png */
+            background-size: contain; 
+            background-repeat: no-repeat; 
+            background-position: center; 
+            width: 200px; /* next.png に合わせてサイズ調整 */
+            height: 80px; /* next.png に合わせてサイズ調整 */
+            background-color: transparent; 
+            border: none; 
         }
-        
+        #reset-button.game-over-button {
+            background-image: url('attend.png'); /* 最終結果表示用はattend.png */
+            width: 250px; /* attend.png に合わせてサイズ調整 */
+            height: 80px; /* attend.png に合わせてサイズ調整 */
+        }
+
         /* *** スコア履歴表示エリア (画面右上) *** */
         #score-history-display {
             position: fixed; top: 10px; right: 10px;
@@ -132,13 +136,12 @@
             transform: translateX(-50%);
             color: white;
             font-size: 20px;
-            /* 画像設定 */
             background-image: url('tapbutton.png'); 
             background-size: contain; 
             background-repeat: no-repeat; 
             background-position: center; 
-            width: 200px; /* 例: 幅を200pxに */
-            height: 200px; /* 例: 高さを200pxに */
+            width: 200px; 
+            height: 200px; 
             border-radius: 5px; 
             z-index: 9996; cursor: pointer; 
             text-align: center; 
@@ -154,14 +157,14 @@
         
         /* 完了後のメッセージスタイル (gameover.png を使用) */
         #throw-instruction.game-over {
-            background-image: url('gameover.png'); /* gameover.png を背景画像に設定 */
+            background-image: url('gameover.png'); 
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
-            background-color: transparent; /* 背景色を透明に */
-            width: 250px; /* gameover.png の幅を調整 */
-            height: 100px; /* gameover.png の高さを調整 */
-            padding: 0; /* テキストがないのでパディングは不要 */
+            background-color: transparent; 
+            width: 250px; 
+            height: 100px; 
+            padding: 0; 
             border: none;
         }
     </style>
@@ -203,18 +206,20 @@
 </head>
 
 <body>
-    
     <div id="target-indicator">
         <img src="lockon.png" alt="ロックオン！">
     </div>
-    <div id="touch-debug" style="display: none;"></div>
+    <div id="touch-debug" style="display: none;">
+        <img src="caution.png" alt="よくねらってね！">
+    </div>
     <div id="score-history-display"></div>
 
     <div id="throw-instruction">
     </div>
 
     <div id="score-display-container" style="display: none;">
-        <button id="reset-button" onclick="handleReset()">もう1かい</button>
+        <button id="reset-button" onclick="handleReset()">
+            </button>
         <div id="score-display-message"></div>
     </div>
 
@@ -251,11 +256,17 @@
 
         function resetGame() {
             const throwBallEl = document.getElementById('throwButton');
+            const resetButtonEl = document.getElementById('reset-button');
             
             document.getElementById('score-display-container').style.display = 'none';
             document.getElementById('throw-instruction').style.display = 'block';
             document.getElementById('touch-debug').style.display = 'none';
-            document.getElementById('reset-button').innerText = 'もう1かい';
+            
+            // 「もう1かい」の画像をnext.pngに設定
+            resetButtonEl.style.backgroundImage = "url('next.png')"; // 👈 修正
+            resetButtonEl.classList.remove('game-over-button'); // ゲームオーバー時のスタイルを解除
+            resetButtonEl.style.width = '200px'; // next.png に合わせてサイズ調整
+            resetButtonEl.style.height = '80px'; // next.png に合わせてサイズ調整
 
             if (throwBallEl && throwBallEl.components['throw-ball']) {
                 throwBallEl.components['throw-ball'].resetThrowState();
@@ -326,6 +337,7 @@
                 this.indicatorEl = document.getElementById('target-indicator');
                 this.powerMeterEl = document.querySelector('[power-meter]');
                 this.selectedPower = 0;
+                this.resetButtonEl = document.getElementById('reset-button');
                 
                 this.markerEl = this.el.parentNode;
 
@@ -338,17 +350,21 @@
 
                 this.markerEl.addEventListener('markerFound', () => {
                     this.isTargetLocked = true;
-                    this.indicatorEl.style.display = 'block'; // ロックオン画像を常に表示
+                    this.indicatorEl.style.display = 'block'; 
                     this.updateInstructionText();
                 });
                 
                 this.markerEl.addEventListener('markerLost', () => {
                     this.isTargetLocked = false;
-                    this.indicatorEl.style.display = 'none'; // ロックオン画像を非表示
+                    this.indicatorEl.style.display = 'none'; 
                     this.updateInstructionText();
                 });
                 
                 this.updateInstructionText();
+                // 初期状態の「もう1かい」ボタンの背景画像をnext.pngに設定
+                this.resetButtonEl.style.backgroundImage = "url('next.png')"; // 👈 修正
+                this.resetButtonEl.style.width = '200px'; 
+                this.resetButtonEl.style.height = '80px'; 
             },
 
             updateInstructionText: function() {
@@ -356,11 +372,11 @@
                 
                 if (playCount >= MAX_PLAY_COUNT) {
                     this.instructionEl.classList.add('game-over'); 
-                    this.instructionEl.innerHTML = ''; // ゲームオーバー時はテキストを空にし、背景画像で表示
+                    this.instructionEl.innerHTML = ''; 
                     this.instructionEl.style.display = 'flex'; 
                 } else if (this.isCharging) {
                     this.instructionEl.classList.remove('game-over'); 
-                    this.instructionEl.innerHTML = ''; // タップボタン画像を表示するためテキストを空に
+                    this.instructionEl.innerHTML = ''; 
                     this.instructionEl.style.display = 'flex'; 
                 } else {
                      this.instructionEl.style.display = 'none';
@@ -377,6 +393,12 @@
                 this.isPowerSet = false;
                 this.el.sceneEl.emit('throw-state-changed', { isCharging: true });
                 this.updateInstructionText();
+
+                // 「もう1かい」ボタンを通常の画像に戻す (next.png)
+                this.resetButtonEl.style.backgroundImage = "url('next.png')"; // 👈 修正
+                this.resetButtonEl.classList.remove('game-over-button');
+                this.resetButtonEl.style.width = '200px'; 
+                this.resetButtonEl.style.height = '80px';
             },
 
             handleClick: function(event) {
@@ -402,9 +424,7 @@
                 } else if (this.isCharging && !this.isTargetLocked) {
                     
                     this.touchDebugEl.style.display = 'block';
-                    this.touchDebugEl.innerText = 'よくねらってね！';
-                    this.touchDebugEl.style.color = 'yellow';
-                    this.touchDebugEl.style.backgroundColor = 'rgba(255, 165, 0, 0.7)';
+                    this.touchDebugEl.innerHTML = ''; 
                     
                     clearTimeout(this.touchTimer);
                     this.touchTimer = setTimeout(() => {
@@ -509,16 +529,22 @@
                         this.scoreContainerEl.style.display = 'block';
                         
                         if (playCount >= MAX_PLAY_COUNT) {
-                            document.getElementById('reset-button').innerText = 'けっかをみせてね！';
+                            // 「けっかをみせてね！」ボタンに attend.png を設定
+                            this.resetButtonEl.style.backgroundImage = "url('attend.png')";
+                            this.resetButtonEl.classList.add('game-over-button');
+                            this.resetButtonEl.style.width = '250px'; 
+                            this.resetButtonEl.style.height = '80px';
                             this.instructionEl.style.display = 'block';
-                            // ゲームオーバー時は背景画像で表示するのでinnerTextは空
                             this.instructionEl.innerHTML = ''; 
                             this.instructionEl.classList.add('game-over'); 
                             
                             playSound('gameover');
                         } else {
-                            document.getElementById('reset-button').innerText = 'もう1かい';
-                            this.instructionEl.classList.remove('game-over'); 
+                            // 「もう1かい」ボタンに next.png を設定
+                            this.resetButtonEl.style.backgroundImage = "url('next.png')"; // 👈 修正
+                            this.resetButtonEl.classList.remove('game-over-button');
+                            this.resetButtonEl.style.width = '200px'; 
+                            this.resetButtonEl.style.height = '80px';
                         }
                     }
                 };
